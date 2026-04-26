@@ -1,0 +1,225 @@
+name: Build (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      # Linux 选项
+      build_linux_i386:
+        description: 'Linux (32-bit)'
+        type: boolean
+        default: false
+      build_linux_amd64:
+        description: 'Linux (64-bit)'
+        type: boolean
+        default: true
+      build_linux_dedicated_i386:
+        description: 'Linux Dedicated (32-bit)'
+        type: boolean
+        default: false
+      build_linux_dedicated_amd64:
+        description: 'Linux Dedicated (64-bit)'
+        type: boolean
+        default: false
+      
+      # Windows 选项
+      build_windows_i386:
+        description: 'Windows (32-bit)'
+        type: boolean
+        default: false
+      build_windows_amd64:
+        description: 'Windows (64-bit)'
+        type: boolean
+        default: true
+      build_windows_dedicated_i386:
+        description: 'Windows Dedicated (32-bit)'
+        type: boolean
+        default: false
+      build_windows_dedicated_amd64:
+        description: 'Windows Dedicated (64-bit)'
+        type: boolean
+        default: false
+      
+      # Android 选项
+      build_android_armv7a:
+        description: 'Android (ARMv7a, 32-bit)'
+        type: boolean
+        default: false
+      build_android_arm64:
+        description: 'Android (ARM64, 64-bit)'
+        type: boolean
+        default: false
+      
+      # macOS 选项
+      build_macos_amd64:
+        description: 'macOS (64-bit)'
+        type: boolean
+        default: false
+      build_macos_dedicated_amd64:
+        description: 'macOS Dedicated (64-bit)'
+        type: boolean
+        default: false
+      
+      # 通用配置选项
+      config_type:
+        description: 'Build type'
+        type: choice
+        options:
+          - debug
+          - release
+        default: release
+      build_games:
+        description: 'Games to build (comma separated: hl2,cstrike,portal2)'
+        type: string
+        default: 'hl2'
+
+jobs:
+  build-linux-i386:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.build_linux_i386 == 'true'
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+    - name: Build linux-i386
+      run: |
+        scripts/build-ubuntu-i386.sh -T ${{ github.event.inputs.config_type }} --build-games=${{ github.event.inputs.build_games }}
+
+  build-linux-amd64:
+    runs-on: ubuntu-20.04
+    if: github.event.inputs.build_linux_amd64 == 'true'
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+    - name: Build linux-amd64
+      run: |
+        scripts/build-ubuntu-amd64.sh -T ${{ github.event.inputs.config_type }} --build-games=${{ github.event.inputs.build_games }}
+
+  build-android-armv7a:
+    runs-on: ubuntu-20.04
+    if: github.event.inputs.build_android_armv7a == 'true'
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+    - name: Build android-armv7a
+      run: |
+        scripts/build-android-armv7a.sh
+
+  build-android-arm64:
+    runs-on: ubuntu-20.04
+    if: github.event.inputs.build_android_arm64 == 'true'
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+    - name: Build android-arm64
+      run: |
+        chmod +x scripts/build-android-arm64.sh
+        scripts/build-android-arm64.sh
+
+  build-windows-i386:
+    runs-on: windows-2019
+    if: github.event.inputs.build_windows_i386 == 'true'
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+    - name: Build windows-i386
+      run: |
+        ./waf.bat configure -T ${{ github.event.inputs.config_type }} --32bits --build-games=${{ github.event.inputs.build_games }}
+        ./waf.bat build
+
+  build-windows-amd64:
+    runs-on: windows-2019
+    if: github.event.inputs.build_windows_amd64 == 'true'
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+    - name: Build windows-amd64
+      run: |
+        ./waf.bat configure -T ${{ github.event.inputs.config_type }} --build-games=${{ github.event.inputs.build_games }}
+        ./waf.bat build
+
+  build-dedicated-windows-i386:
+    runs-on: windows-2019
+    if: github.event.inputs.build_windows_dedicated_i386 == 'true'
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+    - name: Build dedicated windows-i386
+      run: |
+        ./waf.bat configure -T ${{ github.event.inputs.config_type }} -d --32bits --build-games=${{ github.event.inputs.build_games }}
+        ./waf.bat build
+
+  build-dedicated-windows-amd64:
+    runs-on: windows-2019
+    if: github.event.inputs.build_windows_dedicated_amd64 == 'true'
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+    - name: Build dedicated windows-amd64
+      run: |
+        ./waf.bat configure -T ${{ github.event.inputs.config_type }} -d --build-games=${{ github.event.inputs.build_games }}
+        ./waf.bat build
+
+  build-dedicated-linux-i386:
+    runs-on: ubuntu-20.04
+    if: github.event.inputs.build_linux_dedicated_i386 == 'true'
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+    - name: Build dedicated linux-i386
+      run: |
+        scripts/build-ubuntu-i386.sh -d -T ${{ github.event.inputs.config_type }} --build-games=${{ github.event.inputs.build_games }}
+
+  build-dedicated-linux-amd64:
+    runs-on: ubuntu-20.04
+    if: github.event.inputs.build_linux_dedicated_amd64 == 'true'
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+    - name: Build dedicated linux-amd64
+      run: |
+        scripts/build-ubuntu-amd64.sh -d -T ${{ github.event.inputs.config_type }} --build-games=${{ github.event.inputs.build_games }}
+
+  build-macos-amd64:
+    runs-on: macos-latest
+    if: github.event.inputs.build_macos_amd64 == 'true'
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+    - name: Build macos-amd64
+      run: |
+        scripts/build-macos-amd64.sh -T ${{ github.event.inputs.config_type }} --build-games=${{ github.event.inputs.build_games }}
+
+  build-dedicated-macos-amd64:
+    runs-on: macos-latest
+    if: github.event.inputs.build_macos_dedicated_amd64 == 'true'
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+    - name: Build dedicated macos-amd64
+      run: |
+        scripts/build-macos-amd64.sh -d -T ${{ github.event.inputs.config_type }} --build-games=${{ github.event.inputs.build_games }}
+
+  # 上传所有构建产物
+  upload-artifacts:
+    runs-on: ubuntu-latest
+    needs: [build-linux-i386, build-linux-amd64, build-android-armv7a, build-android-arm64, build-windows-i386, build-windows-amd64, build-dedicated-windows-i386, build-dedicated-windows-amd64, build-dedicated-linux-i386, build-dedicated-linux-amd64, build-macos-amd64, build-dedicated-macos-amd64]
+    if: always()
+    steps:
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: source-engine-builds-${{ github.run_id }}
+        path: |
+          **/build_dir/
+    
