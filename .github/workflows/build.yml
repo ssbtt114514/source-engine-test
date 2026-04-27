@@ -3,7 +3,7 @@ name: Build (Manual)
 on:
   workflow_dispatch:
     inputs:
-      # Linux 选项
+      # Linux
       build_linux_i386:
         description: 'Linux (32-bit)'
         type: boolean
