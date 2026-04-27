@@ -1,13 +1,7 @@
 name: Build
 
-on: 
-  workflow_dispatch:
-    inputs:
-      # 手动触发时可以选择是否构建 Android arm64
-      build_android_arm64:
-        description: 'Build Android ARM64 (experimental)'
-        type: boolean
-        default: false
+on:
+   workflow_dispatch:
 
 jobs:
   build-linux-i386:
@@ -36,53 +30,6 @@ jobs:
     - name: Build android-armv7a
       run: |
         scripts/build-android-armv7a.sh
-
-  # ============ 新增：Android ARM64 构建（带缓存加速）============
-  build-android-arm64:
-    runs-on: ubuntu-20.04
-    if: github.event.inputs.build_android_arm64 == 'true'
-    steps:
-    - uses: actions/checkout@v2
-      with:
-        submodules: 'recursive'
-    
-    # 缓存 Waf 构建目录，加速第二次及以后的构建
-    - name: Cache Waf build
-      uses: actions/cache@v3
-      with:
-        path: |
-          build/
-          .waf-*
-        key: ${{ runner.os }}-android-arm64-${{ hashFiles('wscript', '**/*.cpp', '**/*.h') }}
-        restore-keys: |
-          ${{ runner.os }}-android-arm64-
-    
-    # 缓存 NDK 下载（避免每次都重新下载）
-    - name: Cache Android NDK
-      id: cache-ndk
-      uses: actions/cache@v3
-      with:
-        path: android-ndk-r10e
-        key: ${{ runner.os }}-ndk-r10e
-    
-    # 仅当缓存未命中时才下载 NDK
-    - name: Download Android NDK r10e
-      if: steps.cache-ndk.outputs.cache-hit != 'true'
-      run: |
-        wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
-        unzip -q android-ndk-r10e-linux-x86_64.zip
-    
-    - name: Setup environment
-      run: |
-        export ANDROID_NDK_HOME=$PWD/android-ndk-r10e
-        export NDK_HOME=$PWD/android-ndk-r10e
-        echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
-        echo "NDK_HOME=$NDK_HOME" >> $GITHUB_ENV
-    
-    - name: Build android-arm64
-      run: |
-        ./waf configure -T debug --android=arm64-v8a,4.9,21 --togles --disable-warns --64bits
-        ./waf build -j$(nproc)  # 使用全部 CPU 核心并行编译
 
   build-windows-i386:
     runs-on: windows-2019
