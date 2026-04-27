@@ -1,0 +1,58 @@
+name: Build Android (NDK r10e with Waf)
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_android_arm64:
+        description: 'Android (ARM64, 64-bit) 使用 NDK r10e'
+        type: boolean
+        default: true
+      config_type:
+        description: 'Build type'
+        type: choice
+        options:
+          - debug
+          - release
+        default: debug
+
+jobs:
+  build-android-arm64:
+    runs-on: ubuntu-20.04
+    if: github.event.inputs.build_android_arm64 == 'true'
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: 'android-fixes'  # 指定你的分支
+        submodules: 'recursive'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        # 根据官方文档，为32位交叉编译准备
+        sudo dpkg --add-architecture i386
+        sudo apt-get install -y build-essential gcc-multilib g++-multilib pkg-config ccache
+
+    - name: Setup Android NDK r10e (官方指定版本)
+      run: |
+        wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
+        unzip -q android-ndk-r10e-linux-x86_64.zip
+        echo "ANDROID_NDK_HOME=$PWD/android-ndk-r10e" >> $GITHV_ENV
+        echo "ANDROID_NDK=$PWD/android-ndk-r10e" >> $GITHUB_ENV
+
+    - name: Build with Waf (aarch64)
+      run: |
+        # 关键：根据官方文档，使用 aarch64 并加上 --64bits 参数
+        ./waf configure -T ${{ github.event.inputs.config_type }} \
+          --android=aarch64,4.9,21 \
+          --togles \
+          --64bits \
+          --disable-warns
+        ./waf build
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-arm64-build
+        path: |
+          **/build_dir/
+          **/*.so
