@@ -1,9 +1,49 @@
-name: Build Linux ARM64 (QEMU)
+name: Build Linux (AMD64 + ARM64)
 
 on:
   workflow_dispatch:
+    inputs:
+      config_type:
+        description: 'Build type'
+        type: choice
+        options:
+          - debug
+          - release
+        default: release
 
 jobs:
+  # ========== AMD64 构建（原生）==========
+  build-linux-amd64:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          build-essential pkg-config python3 \
+          libsdl2-dev libfreetype6-dev libfontconfig1-dev \
+          libopenal-dev libjpeg-dev libpng-dev \
+          libcurl4-gnutls-dev libbz2-dev libedit-dev zlib1g-dev
+
+    - name: Build AMD64
+      run: |
+        unset CC CXX
+        ./waf configure -T ${{ github.event.inputs.config_type }} --disable-warns
+        ./waf build -j$(nproc)
+
+    - name: Upload AMD64 artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-amd64-${{ github.event.inputs.config_type }}
+        path: |
+          build/
+          build_dir/
+
+  # ========== ARM64 构建（QEMU 模拟）==========
   build-linux-arm64:
     runs-on: ubuntu-latest
     steps:
@@ -21,20 +61,23 @@ jobs:
       with:
         args: |
           bash -c "
-            apt update && apt install -y \
-              git python3 build-essential pkg-config \
+            set -e
+            apt update
+            apt install -y --no-install-recommends \
+              git python3 build-essential pkg-config ccache \
               libsdl2-dev libfreetype6-dev libfontconfig1-dev \
               libopenal-dev libjpeg-dev libpng-dev \
-              libcurl4-gnutls-dev libbz2-dev libedit-dev \
-              zlib1g-dev &&
-            cd /github/workspace &&
-            unset CC CXX &&
-            ./waf configure -T release --disable-warns &&
+              libcurl4-gnutls-dev libbz2-dev libedit-dev zlib1g-dev
+            cd /github/workspace
+            unset CC CXX
+            ./waf configure -T ${{ github.event.inputs.config_type }} --disable-warns
             ./waf build -j\$(nproc)
           "
 
-    - name: Upload artifacts
+    - name: Upload ARM64 artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: linux-arm64
-        path: build/
+        name: linux-arm64-${{ github.event.inputs.config_type }}
+        path: |
+          build/
+          build_dir/
