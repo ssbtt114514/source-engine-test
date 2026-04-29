@@ -1,0 +1,40 @@
+name: Build Linux ARM64 (QEMU)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-linux-arm64:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: arm64
+
+    - name: Build in ARM64 container
+      uses: docker://arm64v8/ubuntu:22.04
+      with:
+        args: |
+          bash -c "
+            apt update && apt install -y \
+              git python3 build-essential pkg-config \
+              libsdl2-dev libfreetype6-dev libfontconfig1-dev \
+              libopenal-dev libjpeg-dev libpng-dev \
+              libcurl4-gnutls-dev libbz2-dev libedit-dev \
+              zlib1g-dev &&
+            cd /github/workspace &&
+            unset CC CXX &&
+            ./waf configure -T release --disable-warns &&
+            ./waf build -j\$(nproc)
+          "
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-arm64
+        path: build/
