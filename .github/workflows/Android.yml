@@ -1,0 +1,85 @@
+name: Build Android ARM64
+
+on:
+  workflow_dispatch:
+    inputs:
+      config_type:
+        description: 'Build type'
+        type: choice
+        options:
+          - debug
+          - release
+        default: release
+      build_games:
+        description: 'Games to build (comma separated: hl2,cstrike,portal2)'
+        type: string
+        default: 'hl2'
+
+jobs:
+  build-android-arm64:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+
+    # 缓存 NDK，避免重复下载（约 700MB）
+    - name: Cache Android NDK
+      id: cache-ndk
+      uses: actions/cache@v4
+      with:
+        path: android-ndk-r10e
+        key: ${{ runner.os }}-ndk-r10e
+
+    # 仅在缓存未命中时下载 NDK
+    - name: Download Android NDK r10e
+      if: steps.cache-ndk.outputs.cache-hit != 'true'
+      run: |
+        wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
+        unzip -q android-ndk-r10e-linux-x86_64.zip
+
+    - name: Setup environment
+      run: |
+        echo "ANDROID_NDK_HOME=$PWD/android-ndk-r10e" >> $GITHUB_ENV
+        echo "NDK_HOME=$PWD/android-ndk-r10e" >> $GITHUB_ENV
+
+    # 缓存 Waf 构建目录，加速二次构建
+    - name: Cache Waf build
+      uses: actions/cache@v4
+      with:
+        path: |
+          build/
+          .waf-*
+        key: ${{ runner.os }}-android-arm64-${{ hashFiles('wscript', '**/*.cpp', '**/*.h') }}
+        restore-keys: |
+          ${{ runner.os }}-android-arm64-
+
+    - name: Build Android ARM64
+      run: |
+        # Android ARM64 构建参数
+        # aarch64 = ARM64 架构
+        # 4.9 = GCC 版本
+        # 21 = Android API 级别 (Android 5.0)
+        # --64bits 必须添加，否则会编出 32 位
+        ./waf configure -T ${{ github.event.inputs.config_type }} \
+          --android=aarch64,4.9,21 \
+          --togles \
+          --disable-warns \
+          --64bits \
+          --build-games=${{ github.event.inputs.build_games }}
+        ./waf build -j$(nproc)
+
+    - name: List build artifacts
+      run: |
+        echo "=== Build directory contents ==="
+        ls -la build/ 2>/dev/null || ls -la build_dir/ 2>/dev/null
+        echo "=== Shared libraries ==="
+        find build -name "*.so" 2>/dev/null || find build_dir -name "*.so" 2>/dev/null
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-arm64-${{ github.event.inputs.config_type }}-${{ github.event.inputs.build_games }}
+        path: |
+          build/
+          build_dir/
