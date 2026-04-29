@@ -1,0 +1,61 @@
+name: Build Linux ARM64 (Cross Compile)
+
+on:
+  workflow_dispatch:
+    inputs:
+      config_type:
+        description: 'Build type'
+        type: choice
+        options:
+          - debug
+          - release
+        default: release
+
+jobs:
+  build-linux-arm64:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+
+    - name: Install cross-compilation tools
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+          pkg-config-aarch64-linux-gnu \
+          python3 build-essential ccache
+
+    - name: Install ARM64 libraries
+      run: |
+        sudo dpkg --add-architecture arm64
+        sudo apt update
+        sudo apt install -y \
+          libsdl2-dev:arm64 libfreetype6-dev:arm64 \
+          libfontconfig1-dev:arm64 libopenal-dev:arm64 \
+          libjpeg-dev:arm64 libpng-dev:arm64 \
+          libcurl4-gnutls-dev:arm64 libbz2-dev:arm64 \
+          libedit-dev:arm64 zlib1g-dev:arm64
+
+    - name: Build for ARM64
+      run: |
+        export CC=aarch64-linux-gnu-gcc
+        export CXX=aarch64-linux-gnu-g++
+        export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
+        ./waf configure -T ${{ github.event.inputs.config_type }} --disable-warns
+        ./waf build -j$(nproc)
+
+    - name: Verify architecture
+      run: |
+        file build/hl2 2>/dev/null || file build_dir/hl2
+        # 应输出包含 "ARM aarch64"
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-arm64-${{ github.event.inputs.config_type }}
+        path: |
+          **/build/
+          **/build_dir/
+          **/*.so
